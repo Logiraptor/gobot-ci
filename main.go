@@ -6,14 +6,13 @@ import (
 
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/api"
-	"gobot.io/x/gobot/platforms/ble"
 	"gobot.io/x/gobot/platforms/sphero/bb8"
 )
 
-var bb8Address = "c2e70a57-f56d-40ad-cb3e-e3e3826a9560"
+var bb8Address = "BB-E186"
 
 func main() {
-	bleAdaptor := ble.NewClientAdaptor(bb8Address)
+	bleAdaptor := NewClientAdaptor(bb8Address)
 	bb8 := bb8.NewDriver(bleAdaptor)
 
 	work := func() {}
