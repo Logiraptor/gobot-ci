@@ -62,15 +62,15 @@ func main() {
 	})
 
 	bb8.On(ollie.Collision, func(s interface{}) {
-		fmt.Printf("Collision detected: %v", s)
+		fmt.Printf("Collision detected: %v\n", s)
 	})
 
 	bb8.On(ollie.Error, func(s interface{}) {
-		fmt.Printf("Error detected: %v", s)
+		fmt.Printf("Error detected: %v\n", s)
 	})
 
 	bb8.On(ollie.SensorData, func(s interface{}) {
-		fmt.Printf("Sensor Data: %v", s)
+		fmt.Printf("Sensor Data: %v\n", s)
 	})
 
 	err := m.Start()
