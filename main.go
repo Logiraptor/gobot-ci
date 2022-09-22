@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"strconv"
+	"time"
 
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/api"
@@ -23,8 +24,10 @@ func main() {
 	}
 
 	work := func() {
-		// gobot.Every(1*time.Second, func() {
-		// })
+		gobot.Every(1*time.Minute, func() {
+			log.Println("Color heartbeat", color)
+			bb8.SetRGB(uint8(color.Red), uint8(color.Green), uint8(color.Blue))
+		})
 	}
 
 	robot := gobot.NewRobot("bbBot",
