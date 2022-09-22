@@ -32,19 +32,23 @@ func main() {
 	robot.AddCommand("set_color", func(params map[string]interface{}) interface{} {
 		r, err := strconv.Atoi(params["r"].(string))
 		if err != nil {
+			fmt.Println("Error parsing r", err)
 			return err
 		}
 
 		g, err := strconv.Atoi(params["g"].(string))
 		if err != nil {
+			fmt.Println("Error parsing g", err)
 			return err
 		}
 
 		b, err := strconv.Atoi(params["b"].(string))
 		if err != nil {
+			fmt.Println("Error parsing b", err)
 			return err
 		}
 
+		fmt.Println("Setting color to", r, g, b)
 		bb8.SetRGB(uint8(r), uint8(g), uint8(b))
 
 		return true
