@@ -19,22 +19,22 @@ func main() {
 
 	p := NewPlan()
 	p.Push(Interval{
-		Duration: time.Second,
-		R:        255,
-		G:        0,
-		B:        0,
+		DurationMillis: 1000,
+		R:              255,
+		G:              0,
+		B:              0,
 	})
 	p.Push(Interval{
-		Duration: time.Second,
-		R:        0,
-		G:        255,
-		B:        0,
+		DurationMillis: 1000,
+		R:              0,
+		G:              255,
+		B:              0,
 	})
 	p.Push(Interval{
-		Duration: time.Second,
-		R:        0,
-		G:        0,
-		B:        255,
+		DurationMillis: 1000,
+		R:              0,
+		G:              0,
+		B:              255,
 	})
 
 	http.ListenAndServe(":3000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,9 +48,9 @@ func main() {
 			return
 		}
 
-		if i.Duration == 0 {
+		if i.DurationMillis == 0 {
 			log.Println("defaulting to 1 second")
-			i.Duration = time.Second
+			i.DurationMillis = 1000
 		}
 
 		log.Println("pushing", i)
@@ -178,10 +178,10 @@ func NewPlan() *Plan {
 }
 
 type Interval struct {
-	Duration time.Duration `json:"duration"`
-	R        uint8         `json:"r"`
-	G        uint8         `json:"g"`
-	B        uint8         `json:"b"`
+	DurationMillis int64 `json:"duration"`
+	R              uint8 `json:"r"`
+	G              uint8 `json:"g"`
+	B              uint8 `json:"b"`
 }
 
 type Color struct {
@@ -201,5 +201,5 @@ func (p *Plan) Pop() (Color, time.Duration, bool) {
 		Green: interval.G,
 		Blue:  interval.B,
 	}
-	return c, interval.Duration, len(p.Intervals) == 0
+	return c, time.Millisecond * time.Duration(interval.DurationMillis), len(p.Intervals) == 0
 }
