@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"gobot.io/x/gobot"
@@ -20,71 +20,46 @@ func main() {
 	p := NewPlan()
 	p.Push(Interval{
 		Duration: time.Second,
-		Color:    Color{Red: 255, Green: 0, Blue: 0},
+		R:        255,
+		G:        0,
+		B:        0,
 	})
 	p.Push(Interval{
 		Duration: time.Second,
-		Color:    Color{Red: 0, Green: 255, Blue: 0},
+		R:        0,
+		G:        255,
+		B:        0,
 	})
 	p.Push(Interval{
 		Duration: time.Second,
-		Color:    Color{Red: 0, Green: 0, Blue: 255},
+		R:        0,
+		G:        0,
+		B:        255,
 	})
 
 	http.ListenAndServe(":3000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Got request", r.Method, r.URL.Path, r.URL.RawQuery)
+		log.Println("Got request", r.Method, r.URL.Path)
 
-		err := r.ParseForm()
+		var i Interval
+		err := json.NewDecoder(r.Body).Decode(&i)
 		if err != nil {
-			log.Println("Error parsing form", err)
-			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			log.Println("Error parsing request", err)
+			http.Error(w, "Error parsing request", http.StatusBadRequest)
 			return
 		}
 
-		log.Println("form values are", r.Form)
-
-		red, err := strconv.Atoi(r.FormValue("r"))
-		if err != nil {
-			log.Println("Error parsing red", err)
-			http.Error(w, "Error parsing red", http.StatusBadRequest)
-			return
-		}
-
-		green, err := strconv.Atoi(r.FormValue("g"))
-		if err != nil {
-			log.Println("Error parsing green", err)
-			http.Error(w, "Error parsing green", http.StatusBadRequest)
-			return
-		}
-
-		blue, err := strconv.Atoi(r.FormValue("b"))
-		if err != nil {
-			log.Println("Error parsing blue", err)
-			http.Error(w, "Error parsing blue", http.StatusBadRequest)
-			return
-		}
-
-		duration, err := time.ParseDuration(r.FormValue("duration"))
-		if err != nil {
-			log.Println("Error parsing duration", err)
-			http.Error(w, "Error parsing duration", http.StatusBadRequest)
-			return
-		}
-
-		if duration == 0 {
+		if i.Duration == 0 {
 			log.Println("defaulting to 1 second")
-			duration = time.Second
+			i.Duration = time.Second
 		}
 
-		log.Println("pushing", red, green, blue, duration)
-		p.Push(Interval{
-			Duration: duration,
-			Color:    Color{Red: (red), Green: (green), Blue: (blue)},
-		})
+		log.Println("pushing", i)
+		p.Push(i)
 	}))
 
 	for {
 		currentColor, dur, last := p.Pop()
+		log.Println("popped", currentColor, dur, last)
 		worker.colors <- currentColor
 		<-time.After(dur)
 
@@ -166,13 +141,13 @@ func (c *bgconn) liveLoop(startingColor Color) {
 
 	currentColor := startingColor
 
-	c.abs.SetRGB(uint8(currentColor.Red), uint8(currentColor.Green), uint8(currentColor.Blue))
+	c.abs.SetRGB(currentColor.Red, currentColor.Green, currentColor.Blue)
 
 	for {
 		select {
 		case color := <-c.colors:
 			currentColor = color
-			c.abs.SetRGB(uint8(currentColor.Red), uint8(currentColor.Green), uint8(currentColor.Blue))
+			c.abs.SetRGB(currentColor.Red, currentColor.Green, currentColor.Blue)
 
 			if currentColor == (Color{}) {
 				if timeout == nil {
@@ -182,7 +157,7 @@ func (c *bgconn) liveLoop(startingColor Color) {
 				timeout = nil
 			}
 		case <-ticker.C:
-			c.abs.SetRGB(uint8(currentColor.Red), uint8(currentColor.Green), uint8(currentColor.Blue))
+			c.abs.SetRGB(currentColor.Red, currentColor.Green, currentColor.Blue)
 		case <-timeout:
 			return
 		}
@@ -203,14 +178,16 @@ func NewPlan() *Plan {
 }
 
 type Interval struct {
-	Duration time.Duration
-	Color    Color
+	Duration time.Duration `json:"duration"`
+	R        uint8         `json:"r"`
+	G        uint8         `json:"g"`
+	B        uint8         `json:"b"`
 }
 
 type Color struct {
-	Red   int
-	Green int
-	Blue  int
+	Red   uint8
+	Green uint8
+	Blue  uint8
 }
 
 func (p *Plan) Push(interval Interval) {
@@ -219,5 +196,10 @@ func (p *Plan) Push(interval Interval) {
 
 func (p *Plan) Pop() (Color, time.Duration, bool) {
 	interval := <-p.Intervals
-	return interval.Color, interval.Duration, len(p.Intervals) == 0
+	c := Color{
+		Red:   interval.R,
+		Green: interval.G,
+		Blue:  interval.B,
+	}
+	return c, interval.Duration, len(p.Intervals) == 0
 }
