@@ -1,81 +1,205 @@
 package main
 
 import (
-	"log"
+	"net/http"
 	"strconv"
 	"time"
 
 	"gobot.io/x/gobot"
-	"gobot.io/x/gobot/api"
 	"gobot.io/x/gobot/platforms/sphero/bb8"
-	"gobot.io/x/gobot/platforms/sphero/ollie"
 )
 
 var bb8Address = "BB-E186"
 
 func main() {
+	adp := NewGobotAdapter()
+	worker := NewBgConn(adp)
+	go worker.worker()
+
+	p := NewPlan()
+	p.Push(Interval{
+		Duration: time.Second,
+		Color:    Color{Red: 255, Green: 0, Blue: 0},
+	})
+	p.Push(Interval{
+		Duration: time.Second,
+		Color:    Color{Red: 0, Green: 255, Blue: 0},
+	})
+	p.Push(Interval{
+		Duration: time.Second,
+		Color:    Color{Red: 0, Green: 0, Blue: 255},
+	})
+
+	http.ListenAndServe(":3000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		red, err := strconv.Atoi(r.FormValue("r"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		green, err := strconv.Atoi(r.FormValue("g"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		blue, err := strconv.Atoi(r.FormValue("b"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		duration, err := time.ParseDuration(r.FormValue("duration"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if duration == 0 {
+			duration = time.Second
+		}
+
+		p.Push(Interval{
+			Duration: duration,
+			Color:    Color{Red: (red), Green: (green), Blue: (blue)},
+		})
+	}))
+
+	for {
+		currentColor, dur, last := p.Pop()
+		worker.colors <- currentColor
+		<-time.After(dur)
+
+		if last {
+			worker.colors <- Color{}
+		}
+	}
+}
+
+type bb8Abstraction interface {
+	Start()
+	Stop()
+	SetRGB(r, g, b uint8)
+}
+
+func NewGobotAdapter() *gobotAdapter {
 	bleAdaptor := NewClientAdaptor(bb8Address)
 	bb8 := bb8.NewDriver(bleAdaptor)
 
-	var color struct {
-		Red   int
-		Green int
-		Blue  int
-	}
-
-	work := func() {
-		gobot.Every(1*time.Minute, func() {
-			log.Println("Color heartbeat", color)
-			bb8.SetRGB(uint8(color.Red), uint8(color.Green), uint8(color.Blue))
-		})
-	}
+	work := func() {}
 
 	robot := gobot.NewRobot("bbBot",
 		[]gobot.Connection{bleAdaptor},
 		[]gobot.Device{bb8},
 		work,
 	)
+
 	m := gobot.NewMaster()
 	m.AddRobot(robot)
-	api.NewAPI(m).Start()
+	m.AutoRun = false
 
-	robot.AddCommand("set_color", func(params map[string]interface{}) interface{} {
-		var err error
-		color.Red, err = strconv.Atoi(params["r"].(string))
-		if err != nil {
-			log.Println("Error parsing r", err)
-			return err
+	return &gobotAdapter{
+		m:      m,
+		driver: bb8,
+	}
+}
+
+type gobotAdapter struct {
+	m      *gobot.Master
+	driver *bb8.BB8Driver
+}
+
+func (x *gobotAdapter) Start() {
+	x.m.Start()
+}
+
+func (x *gobotAdapter) Stop() {
+	x.m.Stop()
+}
+
+func (x *gobotAdapter) SetRGB(r, g, b uint8) {
+	x.driver.SetRGB(r, g, b)
+}
+
+type bgconn struct {
+	colors chan Color
+	abs    bb8Abstraction
+}
+
+func NewBgConn(abs bb8Abstraction) *bgconn {
+	return &bgconn{
+		colors: make(chan Color),
+		abs:    abs,
+	}
+}
+
+func (c *bgconn) worker() {
+	for color := range c.colors {
+		c.liveLoop(color)
+	}
+}
+
+func (c *bgconn) liveLoop(startingColor Color) {
+	c.abs.Start()
+	defer c.abs.Stop()
+
+	ticker := time.NewTicker(1 * time.Minute)
+	var timeout <-chan time.Time
+
+	currentColor := startingColor
+
+	c.abs.SetRGB(uint8(currentColor.Red), uint8(currentColor.Green), uint8(currentColor.Blue))
+
+	for {
+		select {
+		case color := <-c.colors:
+			currentColor = color
+			c.abs.SetRGB(uint8(currentColor.Red), uint8(currentColor.Green), uint8(currentColor.Blue))
+
+			if currentColor == (Color{}) {
+				if timeout == nil {
+					timeout = time.After(30 * time.Second)
+				}
+			} else {
+				timeout = nil
+			}
+		case <-ticker.C:
+			c.abs.SetRGB(uint8(currentColor.Red), uint8(currentColor.Green), uint8(currentColor.Blue))
+		case <-timeout:
+			return
 		}
+	}
+}
 
-		color.Green, err = strconv.Atoi(params["g"].(string))
-		if err != nil {
-			log.Println("Error parsing g", err)
-			return err
-		}
+func iterate() {
+}
 
-		color.Blue, err = strconv.Atoi(params["b"].(string))
-		if err != nil {
-			log.Println("Error parsing b", err)
-			return err
-		}
+type Plan struct {
+	Intervals chan Interval
+}
 
-		log.Println("Setting color to", color.Red, color.Green, color.Blue)
-		bb8.SetRGB(uint8(color.Red), uint8(color.Green), uint8(color.Blue))
-		return true
-	})
+func NewPlan() *Plan {
+	return &Plan{
+		Intervals: make(chan Interval, 100),
+	}
+}
 
-	bb8.On(ollie.Collision, func(s interface{}) {
-		log.Printf("Collision detected: %T %v\n", s, s)
-	})
+type Interval struct {
+	Duration time.Duration
+	Color    Color
+}
 
-	bb8.On(ollie.Error, func(s interface{}) {
-		log.Printf("Error detected: %T %v\n", s, s)
-	})
+type Color struct {
+	Red   int
+	Green int
+	Blue  int
+}
 
-	bb8.On(ollie.SensorData, func(s interface{}) {
-		log.Printf("Sensor Data: %T %v\n", s, s)
-	})
+func (p *Plan) Push(interval Interval) {
+	p.Intervals <- interval
+}
 
-	err := m.Start()
-	log.Println(err)
+func (p *Plan) Pop() (Color, time.Duration, bool) {
+	interval := <-p.Intervals
+	return interval.Color, interval.Duration, len(p.Intervals) == 0
 }
