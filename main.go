@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -31,34 +32,41 @@ func main() {
 	})
 
 	http.ListenAndServe(":3000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Got request", r.Method, r.URL.Path, r.URL.RawQuery)
 		red, err := strconv.Atoi(r.FormValue("r"))
 		if err != nil {
+			log.Println(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		green, err := strconv.Atoi(r.FormValue("g"))
 		if err != nil {
+			log.Println(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		blue, err := strconv.Atoi(r.FormValue("b"))
 		if err != nil {
+			log.Println(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		duration, err := time.ParseDuration(r.FormValue("duration"))
 		if err != nil {
+			log.Println(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if duration == 0 {
+			log.Println("defaulting to 1 second")
 			duration = time.Second
 		}
 
+		log.Println("pushing", red, green, blue, duration)
 		p.Push(Interval{
 			Duration: duration,
 			Color:    Color{Red: (red), Green: (green), Blue: (blue)},
