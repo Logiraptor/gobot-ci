@@ -33,31 +33,41 @@ func main() {
 
 	http.ListenAndServe(":3000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Got request", r.Method, r.URL.Path, r.URL.RawQuery)
+
+		err := r.ParseForm()
+		if err != nil {
+			log.Println("Error parsing form", err)
+			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			return
+		}
+
+		log.Println("form values are", r.Form)
+
 		red, err := strconv.Atoi(r.FormValue("r"))
 		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			log.Println("Error parsing red", err)
+			http.Error(w, "Error parsing red", http.StatusBadRequest)
 			return
 		}
 
 		green, err := strconv.Atoi(r.FormValue("g"))
 		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			log.Println("Error parsing green", err)
+			http.Error(w, "Error parsing green", http.StatusBadRequest)
 			return
 		}
 
 		blue, err := strconv.Atoi(r.FormValue("b"))
 		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			log.Println("Error parsing blue", err)
+			http.Error(w, "Error parsing blue", http.StatusBadRequest)
 			return
 		}
 
 		duration, err := time.ParseDuration(r.FormValue("duration"))
 		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			log.Println("Error parsing duration", err)
+			http.Error(w, "Error parsing duration", http.StatusBadRequest)
 			return
 		}
 
