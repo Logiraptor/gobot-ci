@@ -37,6 +37,19 @@ func main() {
 		B:              255,
 	})
 
+	go func() {
+		for {
+			currentColor, dur, last := p.Pop()
+			log.Println("popped", currentColor, dur, last)
+			worker.colors <- currentColor
+			<-time.After(dur)
+
+			if last {
+				worker.colors <- Color{}
+			}
+		}
+	}()
+
 	http.ListenAndServe(":3000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Got request", r.Method, r.URL.Path)
 
@@ -57,16 +70,6 @@ func main() {
 		p.Push(i)
 	}))
 
-	for {
-		currentColor, dur, last := p.Pop()
-		log.Println("popped", currentColor, dur, last)
-		worker.colors <- currentColor
-		<-time.After(dur)
-
-		if last {
-			worker.colors <- Color{}
-		}
-	}
 }
 
 type bb8Abstraction interface {
