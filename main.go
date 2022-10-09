@@ -138,7 +138,7 @@ func (c *bgconn) worker() {
 }
 
 func (c *bgconn) liveLoop(startingColor Color) {
-	c.abs.Start()
+	go c.abs.Start()
 	defer c.abs.Stop()
 
 	ticker := time.NewTicker(1 * time.Minute)
