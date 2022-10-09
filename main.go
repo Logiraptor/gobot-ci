@@ -39,14 +39,14 @@ func main() {
 
 	go func() {
 		for {
-			currentColor, dur, last := p.Pop()
-			log.Println("popped", currentColor, dur, last)
-			worker.colors <- currentColor
-			<-time.After(dur)
-
-			if last {
+			if p.Empty() {
 				worker.colors <- Color{}
 			}
+
+			currentColor, dur := p.Pop()
+			log.Println("popped", currentColor, dur)
+			worker.colors <- currentColor
+			<-time.After(dur)
 		}
 	}()
 
@@ -207,12 +207,16 @@ func (p *Plan) Push(interval Interval) {
 	p.Intervals <- interval
 }
 
-func (p *Plan) Pop() (Color, time.Duration, bool) {
+func (p *Plan) Empty() bool {
+	return len(p.Intervals) == 0
+}
+
+func (p *Plan) Pop() (Color, time.Duration) {
 	interval := <-p.Intervals
 	c := Color{
 		Red:   interval.R,
 		Green: interval.G,
 		Blue:  interval.B,
 	}
-	return c, time.Millisecond * time.Duration(interval.DurationMillis), len(p.Intervals) == 0
+	return c, time.Millisecond * time.Duration(interval.DurationMillis)
 }
