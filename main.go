@@ -72,22 +72,13 @@ func main() {
 
 }
 
-type bb8Abstraction interface {
-	Start()
-	Stop()
-	SetRGB(r, g, b uint8)
-}
-
 func NewGobotAdapter() *gobotAdapter {
 	bleAdaptor := NewClientAdaptor(bb8Address)
 	bb8 := bb8.NewDriver(bleAdaptor)
 
-	work := func() {}
-
 	robot := gobot.NewRobot("bbBot",
 		[]gobot.Connection{bleAdaptor},
 		[]gobot.Device{bb8},
-		work,
 	)
 
 	m := gobot.NewMaster()
@@ -105,24 +96,35 @@ type gobotAdapter struct {
 	driver *bb8.BB8Driver
 }
 
-func (x *gobotAdapter) Start() {
-	x.m.Start()
+func (x *gobotAdapter) Start() error {
+	log.Println("starting gobot master")
+	err := x.m.Start()
+	if err != nil {
+		log.Println("error starting gobot master", err)
+	}
+	return err
 }
 
-func (x *gobotAdapter) Stop() {
-	x.m.Stop()
+func (x *gobotAdapter) Stop() error {
+	log.Println("stopping gobot master")
+	err := x.m.Start()
+	if err != nil {
+		log.Println("error stopping gobot master", err)
+	}
+	return err
 }
 
 func (x *gobotAdapter) SetRGB(r, g, b uint8) {
+	log.Println("setting color over ble", r, g, b)
 	x.driver.SetRGB(r, g, b)
 }
 
 type bgconn struct {
 	colors chan Color
-	abs    bb8Abstraction
+	abs    *gobotAdapter
 }
 
-func NewBgConn(abs bb8Abstraction) *bgconn {
+func NewBgConn(abs *gobotAdapter) *bgconn {
 	return &bgconn{
 		colors: make(chan Color),
 		abs:    abs,
@@ -165,9 +167,6 @@ func (c *bgconn) liveLoop(startingColor Color) {
 			return
 		}
 	}
-}
-
-func iterate() {
 }
 
 type Plan struct {
