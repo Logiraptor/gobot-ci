@@ -137,7 +137,14 @@ func (c *bgconn) worker() {
 }
 
 func (c *bgconn) liveLoop(startingColor Color) {
-	go c.abs.Start()
+	abort := make(chan struct{})
+	go func() {
+		err := c.abs.Start()
+		if err != nil {
+			log.Println("error starting gobot master, aborting live loop", err)
+			close(abort)
+		}
+	}()
 	// Poll until bluetooth is running
 	for !c.abs.m.Running() {
 	}
@@ -166,6 +173,8 @@ func (c *bgconn) liveLoop(startingColor Color) {
 		case <-ticker.C:
 			c.abs.SetRGB(currentColor.Red, currentColor.Green, currentColor.Blue)
 		case <-timeout:
+			return
+		case <-abort:
 			return
 		}
 	}
