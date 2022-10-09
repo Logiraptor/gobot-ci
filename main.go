@@ -107,7 +107,7 @@ func (x *gobotAdapter) Start() error {
 
 func (x *gobotAdapter) Stop() error {
 	log.Println("stopping gobot master")
-	err := x.m.Start()
+	err := x.m.Stop()
 	if err != nil {
 		log.Println("error stopping gobot master", err)
 	}
