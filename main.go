@@ -139,6 +139,9 @@ func (c *bgconn) worker() {
 
 func (c *bgconn) liveLoop(startingColor Color) {
 	go c.abs.Start()
+	// This isn't great but it doesn't look like there's a better way to wait for gobot to start
+	// Maybe if I hook into the work function I can do something better
+	time.Sleep(time.Second)
 	defer c.abs.Stop()
 
 	ticker := time.NewTicker(1 * time.Minute)
