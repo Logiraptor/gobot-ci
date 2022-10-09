@@ -83,7 +83,6 @@ func NewGobotAdapter() *gobotAdapter {
 
 	m := gobot.NewMaster()
 	m.AddRobot(robot)
-	m.AutoRun = false
 
 	return &gobotAdapter{
 		m:      m,
